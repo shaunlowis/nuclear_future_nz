@@ -45,7 +45,7 @@ def prophet_forecast(cleaned_df):
     # you can input different frequencies for forecasting, from this set of strings:
     # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-offset-aliases
 
-    future = m.make_future_dataframe(periods=26, freq="YS")
+    future = m.make_future_dataframe(periods=27, freq="YS")
     future["cap"] = 72000
     fcst = m.predict(future)
 
@@ -54,6 +54,9 @@ def prophet_forecast(cleaned_df):
 
     fig = m.plot(fcst)
     ax = fig.gca()
+
+    print("Terminal predicted values:\n")
+    print(f"{fcst.ds.iloc[-1]}: {fcst.yhat.iloc[-1]}")
 
     ax.set_ylabel("Net Power Generation [Gwh]")
     ax.set_xlabel("Time [years]")
@@ -78,7 +81,8 @@ def monte_carlo_growth(cleaned_df):
     num_simulations = 1000
     # These should be taken from the dataset maybe
     target_growth_rate = 0.02  # 5% target annual growth rate
-    std_growth_rate = 0.02  # get std from data.
+    # std_growth_rate = 0.02  # get std from data.
+    std_growth_rate = cleaned_df["y"].std() / cleaned_df["y"].mean()
     predictions = []
 
     # This is a very basic approach, but good enough for our case.
@@ -104,8 +108,14 @@ def plot_monte_carlo(df):
 
     # Analyze results
     mean_prediction = df.mean(axis=0)
-    lower_bound = df.quantile(0.025, axis=0)
-    upper_bound = df.quantile(0.975, axis=0)
+    # lower_bound = df.quantile(0.025, axis=0)
+    # upper_bound = df.quantile(0.975, axis=0)
+
+    sigma1_lower = df.quantile(0.32, axis=0)
+    sigma1_upper = df.quantile(0.68, axis=0)
+
+    sigma2_lower = df.quantile(0.05, axis=0)
+    sigma2_upper = df.quantile(0.95, axis=0)
 
     # Styling so output looks nice
     import matplotlib_rc
@@ -113,13 +123,23 @@ def plot_monte_carlo(df):
     fig, ax = plt.subplots()
 
     ax.plot(mean_prediction, label="Mean Prediction", color="blue")
+
     ax.fill_between(
         range(26 + 1),
-        lower_bound,
-        upper_bound,
+        sigma2_lower,
+        sigma2_upper,
+        color="red",
+        alpha=0.2,
+        label=r"$2 \sigma$" + " confidence interval",
+    )
+
+    ax.fill_between(
+        range(26 + 1),
+        sigma1_lower,
+        sigma1_upper,
         color="blue",
         alpha=0.2,
-        label="95% Confidence Interval",
+        label=r"$1 \sigma$" + " confidence interval",
     )
 
     ax.hlines(
@@ -132,9 +152,9 @@ def plot_monte_carlo(df):
         color="r",
     )
 
-    ax.set_title("Projected Future Values with Positive Growth Scenario")
-    ax.set_xlabel("Years")
-    ax.set_ylabel("Projected Value")
+    ax.set_title("Simulating the Innovation scenario using Monte Carlo.")
+    ax.set_xlabel("Time [years]")
+    ax.set_ylabel("Power generation [GWh]")
     ax.legend()
     ax.grid()
 
