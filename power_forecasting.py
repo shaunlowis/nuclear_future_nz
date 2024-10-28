@@ -75,6 +75,8 @@ def prophet_forecast(cleaned_df):
 
 
 def monte_carlo_growth(cleaned_df):
+    # We want our output to be reproducible for data analysis
+    np.random.seed(42)
     # use our historical data
     base_value = cleaned_df["y"].values[-1]
     years = 26
