@@ -34,8 +34,6 @@ def plot_prophet(prophet_obj, df_fcst, filename):
 
 def plot_monte_carlo(df, filename):
     mean_prediction = df.mean(axis=0)
-    # lower_bound = df.quantile(0.025, axis=0)
-    # upper_bound = df.quantile(0.975, axis=0)
 
     sigma1_lower = df.quantile(0.32, axis=0)
     sigma1_upper = df.quantile(0.68, axis=0)
@@ -81,35 +79,10 @@ def plot_monte_carlo(df, filename):
     ax.legend()
     ax.grid()
 
-    # plt.show()
     plt.savefig(filename)
 
 
 def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list):
-    # fig, ax = plt.subplots(2, 1, constrained_layout=True, sharex=True)
-
-    # def _helper_plotter(df, ax, added_text):
-    #     for column in df.columns:
-    #         ax.plot(
-    #             df[column].index + 2023,
-    #             df[column].values,
-    #             label=f"{column} {added_text}",
-    #         )
-
-    # _helper_plotter(prophet_dfs[0], ax[0], "Prophet minimal CO2-e")
-    # _helper_plotter(prophet_dfs[1], ax[0], "Prophet maximum CO2-e")
-    # _helper_plotter(monte_carlo_dfs[0], ax[1], "Monte Carlo minimal CO2-e")
-    # _helper_plotter(monte_carlo_dfs[1], ax[1], "Monte Carlo maximum CO2-e")
-
-    # ax[0].set_title("Prophet CO2-e emissions.")
-    # ax[1].set_title("Monte Carlo CO2-e emissions.")
-
-    # ax[0].grid()
-    # ax[1].grid()
-
-    # ax[0].legend()
-    # ax[1].legend()
-
     fig, ax = plt.subplots(constrained_layout=True)
 
     x = prophet_dfs[0][prophet_dfs[0].columns[0]].index + 2023
@@ -117,7 +90,6 @@ def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list):
     for energy_type in prophet_dfs[0].columns:
         prophet_min = prophet_dfs[0][energy_type]
         prophet_max = prophet_dfs[1][energy_type]
-        # This is a little gross, but works
         prophet_y = pd.concat([prophet_min, prophet_max], axis=1).mean(axis=1).values
 
         monte_carlo_min = monte_carlo_dfs[0][energy_type]
@@ -126,20 +98,28 @@ def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list):
             pd.concat([monte_carlo_min, monte_carlo_max], axis=1).mean(axis=1).values
         )
 
-        ax.errorbar(
-            x,
-            prophet_y,
-            yerr=[prophet_min, prophet_max],
-            label=f"Prophet {energy_type} CO2-e",
-        )
+        combined_y = np.mean([prophet_y, monte_carlo_y], axis=0)
 
         ax.errorbar(
             x,
-            monte_carlo_y,
-            yerr=[monte_carlo_min, monte_carlo_max],
-            label=f"Monte Carlo {energy_type} CO2-e",
+            combined_y,
+            yerr=[prophet_y, monte_carlo_y],
+            label=f"{energy_type} CO2-e",
+            linewidth=1.5,
+            elinewidth=1,
+            capsize=2,
         )
 
-    ax.legend()
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.15),
+        fancybox=True,
+        shadow=True,
+        ncol=4,
+    )
+    ax.set_title("Simulated CO2-e values.")
+    ax.set_ylabel("CO2-e [kt]")
+    ax.set_xlabel("Time [years]")
+    ax.grid(linewidth=0.5)
 
-    plt.show()
+    plt.savefig("report_plots/sim_co2e.pdf")

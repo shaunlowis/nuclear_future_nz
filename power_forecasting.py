@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 
 
 def prophet_forecast(cleaned_df):
-    """This method and framework did not seem to work very well."""
+    """Worked really well."""
 
     # Make sure this column is recognised as dates.
     cleaned_df["ds"] = pd.to_datetime(cleaned_df["ds"], errors="coerce", format="%Y")
@@ -108,23 +108,33 @@ def apply_energy_mix(
     output_df_min = pd.DataFrame(columns=power_types)
     output_df_max = pd.DataFrame(columns=power_types)
 
+    # Initially, power units from electricity.xlsx is net generation in GWh.
+    # The value for CO2-e is g/kWh.
+    # 1 GWh = 1e6 kWh, so multiply power value by 1e6
+    # Then multiply electricity value by CO2-e equivalent, for g.
+    # 1g = 1e-9 kt. Then final units are CO2-e [kt]
+
     for i, power_type in enumerate(power_types):
         output_df_min[power_type] = (
             emissions_array
             * energy_df["energy_proportion"].iloc[i]
             * energy_df["min_co2e"].iloc[i]
+            * 1e6
+            * 1e-9
         )
         output_df_max[power_type] = (
             emissions_array
             * energy_df["energy_proportion"].iloc[i]
             * energy_df["max_co2e"].iloc[i]
+            * 1e6
+            * 1e-9
         )
 
     return output_df_min, output_df_max
 
 
 def main():
-    fp = os.path.join(os.getcwd(), "electricity.xlsx")
+    fp = os.path.join(os.getcwd(), "data/electricity.xlsx")
     # Retrieve annual power generation:
     df = pd.read_excel(fp, sheet_name=2, skiprows=8)
 
@@ -139,9 +149,9 @@ def main():
     )
 
     prophet_obj, df_fcst = prophet_forecast(reduced_df)
-    # plot_prophet(prophet_obj, df_fcst, "projection_historical.pdf")
+    plot_prophet(prophet_obj, df_fcst, "report_plots/projection_historical.pdf")
     df_carlo = monte_carlo_growth(reduced_df)
-    # plot_monte_carlo(df_carlo, "first_monte_carlo.pdf")
+    plot_monte_carlo(df_carlo, "report_plots/first_monte_carlo.pdf")
 
     df_carlo_min, df_carlo_max = apply_energy_mix(df_carlo.mean(axis=0).values)
     df_prophet_min, df_prophet_max = apply_energy_mix(df_fcst.yhat.iloc[-27:].values)
