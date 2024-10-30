@@ -22,9 +22,8 @@ import numpy as np
 # Curve fitting
 import prophet
 
-# Plotting
+from model_visualisation import plot_monte_carlo, plot_prophet, plot_min_max_df
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 
 
 def prophet_forecast(cleaned_df):
@@ -49,29 +48,7 @@ def prophet_forecast(cleaned_df):
     future["cap"] = 72000
     fcst = m.predict(future)
 
-    # This is a matplotlib figure, so we can update it to look nice with this import.
-    import matplotlib_rc
-
-    fig = m.plot(fcst)
-    ax = fig.gca()
-
-    print("Terminal predicted values:\n")
-    print(f"{fcst.ds.iloc[-1]}: {fcst.yhat.iloc[-1]}")
-
-    ax.set_ylabel("Net Power Generation [Gwh]")
-    ax.set_xlabel("Time [years]")
-    fig.suptitle("Power generation in New Zealand, only fitting historical data.")
-
-    # Make x axis more legible.
-    ax.set_xlim([pd.Timestamp("1974-01-01"), pd.Timestamp("2050-01-01")])
-    ax.xaxis.set_major_locator(mdates.YearLocator(5))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    plt.xticks(rotation=45)
-
-    fig.tight_layout()
-    ax.legend()
-
-    fig.savefig("projection_historical.pdf")
+    return m, fcst
 
 
 def monte_carlo_growth(cleaned_df):
@@ -106,62 +83,44 @@ def monte_carlo_growth(cleaned_df):
     return pd.DataFrame(predictions)
 
 
-def plot_monte_carlo(df):
-
-    # Analyze results
-    mean_prediction = df.mean(axis=0)
-    # lower_bound = df.quantile(0.025, axis=0)
-    # upper_bound = df.quantile(0.975, axis=0)
-
-    sigma1_lower = df.quantile(0.32, axis=0)
-    sigma1_upper = df.quantile(0.68, axis=0)
-
-    sigma2_lower = df.quantile(0.05, axis=0)
-    sigma2_upper = df.quantile(0.95, axis=0)
-
-    # Styling so output looks nice
-    import matplotlib_rc
-
-    fig, ax = plt.subplots()
-
-    ax.plot(mean_prediction, label="Mean Prediction", color="blue")
-
-    ax.fill_between(
-        range(26 + 1),
-        sigma2_lower,
-        sigma2_upper,
-        color="red",
-        alpha=0.2,
-        label=r"$2 \sigma$" + " confidence interval",
+def apply_energy_mix(
+    emissions_array: np.ndarray,
+):
+    energy_df = pd.DataFrame(
+        {
+            "energy_type": [
+                "Hydro",
+                "Geothermal",
+                "Wind",
+                "Solar",
+                "Coal",
+                "Gas",
+                "Nuclear",
+            ],
+            "energy_proportion": [0.6, 0.18, 0.07, 0.01, 0.02, 0.09, 0],
+            "min_co2e": [6, 21, 7.8, 27, 751, 430, 5.1],
+            "max_co2e": [147, 304, 16, 122, 1095, 513, 6.4],
+        }
     )
 
-    ax.fill_between(
-        range(26 + 1),
-        sigma1_lower,
-        sigma1_upper,
-        color="blue",
-        alpha=0.2,
-        label=r"$1 \sigma$" + " confidence interval",
-    )
+    power_types = energy_df["energy_type"].to_list()
 
-    ax.hlines(
-        y=72000,
-        xmin=0,
-        xmax=26,
-        linewidth=0.5,
-        linestyle="--",
-        label="Upper limit for power generation",
-        color="r",
-    )
+    output_df_min = pd.DataFrame(columns=power_types)
+    output_df_max = pd.DataFrame(columns=power_types)
 
-    ax.set_title("Simulating the Innovation scenario using Monte Carlo.")
-    ax.set_xlabel("Time [years]")
-    ax.set_ylabel("Power generation [GWh]")
-    ax.legend()
-    ax.grid()
+    for i, power_type in enumerate(power_types):
+        output_df_min[power_type] = (
+            emissions_array
+            * energy_df["energy_proportion"].iloc[i]
+            * energy_df["min_co2e"].iloc[i]
+        )
+        output_df_max[power_type] = (
+            emissions_array
+            * energy_df["energy_proportion"].iloc[i]
+            * energy_df["max_co2e"].iloc[i]
+        )
 
-    # plt.show()
-    plt.savefig("first_monte_carlo.pdf")
+    return output_df_min, output_df_max
 
 
 def main():
@@ -179,9 +138,18 @@ def main():
         }
     )
 
-    # prophet_forecast(reduced_df)
+    prophet_obj, df_fcst = prophet_forecast(reduced_df)
+    # plot_prophet(prophet_obj, df_fcst, "projection_historical.pdf")
     df_carlo = monte_carlo_growth(reduced_df)
-    plot_monte_carlo(df_carlo)
+    # plot_monte_carlo(df_carlo, "first_monte_carlo.pdf")
+
+    df_carlo_min, df_carlo_max = apply_energy_mix(df_carlo.mean(axis=0).values)
+    df_prophet_min, df_prophet_max = apply_energy_mix(df_fcst.yhat.iloc[-27:].values)
+
+    plot_min_max_df(
+        prophet_dfs=[df_prophet_min, df_prophet_max],
+        monte_carlo_dfs=[df_carlo_min, df_carlo_max],
+    )
 
 
 if __name__ == main():
