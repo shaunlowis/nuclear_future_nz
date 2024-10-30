@@ -159,6 +159,7 @@ def main():
     plot_min_max_df(
         prophet_dfs=[df_prophet_min, df_prophet_max],
         monte_carlo_dfs=[df_carlo_min, df_carlo_max],
+        filename="report_plots/sim_co2e.pdf",
     )
 
 

@@ -82,10 +82,12 @@ def plot_monte_carlo(df, filename):
     plt.savefig(filename)
 
 
-def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list):
+def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list, filename: str):
     fig, ax = plt.subplots(constrained_layout=True)
 
-    x = prophet_dfs[0][prophet_dfs[0].columns[0]].index + 2023
+    x = prophet_dfs[0][prophet_dfs[0].columns[0]].index + 2024
+
+    co2e_vals = []
 
     for energy_type in prophet_dfs[0].columns:
         prophet_min = prophet_dfs[0][energy_type]
@@ -99,20 +101,26 @@ def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list):
         )
 
         combined_y = np.mean([prophet_y, monte_carlo_y], axis=0)
+        co2e_vals.append(combined_y)
 
         ax.errorbar(
             x,
             combined_y,
             yerr=[prophet_y, monte_carlo_y],
-            label=f"{energy_type} CO2-e",
+            label=f"{energy_type}",
             linewidth=1.5,
             elinewidth=1,
             capsize=2,
         )
 
+    co2e_vals = np.array(co2e_vals).sum(axis=0)
+    ax.plot(x, co2e_vals, label="Total")
+
+    print(co2e_vals)
+
     ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.15),
+        bbox_to_anchor=(0.5, -0.18),
         fancybox=True,
         shadow=True,
         ncol=4,
@@ -122,4 +130,8 @@ def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list):
     ax.set_xlabel("Time [years]")
     ax.grid(linewidth=0.5)
 
-    plt.savefig("report_plots/sim_co2e.pdf")
+    # Make x axis more legible.
+    ax.set_xlim([2023, 2051])
+    plt.xticks(rotation=45)
+
+    plt.savefig(filename)
