@@ -83,25 +83,41 @@ def monte_carlo_growth(cleaned_df):
     return pd.DataFrame(predictions)
 
 
-def apply_energy_mix(
-    emissions_array: np.ndarray,
-):
-    energy_df = pd.DataFrame(
-        {
-            "energy_type": [
-                "Hydro",
-                "Geothermal",
-                "Wind",
-                "Solar",
-                "Coal",
-                "Gas",
-                "Nuclear",
-            ],
-            "energy_proportion": [0.6, 0.18, 0.07, 0.01, 0.02, 0.09, 0],
-            "min_co2e": [6, 21, 7.8, 27, 751, 430, 5.1],
-            "max_co2e": [147, 304, 16, 122, 1095, 513, 6.4],
-        }
-    )
+def apply_energy_mix(emissions_array: np.ndarray, add_nuclear=False):
+    if add_nuclear:
+        energy_df = pd.DataFrame(
+            {
+                "energy_type": [
+                    "Hydro",
+                    "Geothermal",
+                    "Wind",
+                    "Solar",
+                    "Coal",
+                    "Gas",
+                    "Nuclear",
+                ],
+                "energy_proportion": [0.6, 0.18, 0.07, 0.01, 0, 0, 0.11],
+                "min_co2e": [6, 21, 7.8, 27, 751, 430, 5.1],
+                "max_co2e": [147, 304, 16, 122, 1095, 513, 6.4],
+            }
+        )
+    else:
+        energy_df = pd.DataFrame(
+            {
+                "energy_type": [
+                    "Hydro",
+                    "Geothermal",
+                    "Wind",
+                    "Solar",
+                    "Coal",
+                    "Gas",
+                    "Nuclear",
+                ],
+                "energy_proportion": [0.6, 0.18, 0.07, 0.01, 0.02, 0.09, 0],
+                "min_co2e": [6, 21, 7.8, 27, 751, 430, 5.1],
+                "max_co2e": [147, 304, 16, 122, 1095, 513, 6.4],
+            }
+        )
 
     power_types = energy_df["energy_type"].to_list()
 
@@ -160,6 +176,22 @@ def main():
         prophet_dfs=[df_prophet_min, df_prophet_max],
         monte_carlo_dfs=[df_carlo_min, df_carlo_max],
         filename="report_plots/sim_co2e.pdf",
+        title="Simulated CO2-e values \n using 2023 NZ energy mix.",
+    )
+
+    # Now with nuclear replacing fossil fuels
+    df_carlo_min, df_carlo_max = apply_energy_mix(
+        df_carlo.mean(axis=0).values, add_nuclear=True
+    )
+    df_prophet_min, df_prophet_max = apply_energy_mix(
+        df_fcst.yhat.iloc[-27:].values, add_nuclear=True
+    )
+
+    plot_min_max_df(
+        prophet_dfs=[df_prophet_min, df_prophet_max],
+        monte_carlo_dfs=[df_carlo_min, df_carlo_max],
+        filename="report_plots/sim_co2e_nuclear.pdf",
+        title="Simulated CO2-e values \n using 2023 NZ energy mix, replacing fossil fuels with nuclear.",
     )
 
 

@@ -82,7 +82,9 @@ def plot_monte_carlo(df, filename):
     plt.savefig(filename)
 
 
-def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list, filename: str):
+def plot_min_max_df(
+    prophet_dfs: list, monte_carlo_dfs: list, filename: str, title: str
+):
     fig, ax = plt.subplots(constrained_layout=True)
 
     x = prophet_dfs[0][prophet_dfs[0].columns[0]].index + 2024
@@ -125,7 +127,7 @@ def plot_min_max_df(prophet_dfs: list, monte_carlo_dfs: list, filename: str):
         shadow=True,
         ncol=4,
     )
-    ax.set_title("Simulated CO2-e values.")
+    ax.set_title(title)
     ax.set_ylabel("CO2-e [kt]")
     ax.set_xlabel("Time [years]")
     ax.grid(linewidth=0.5)
